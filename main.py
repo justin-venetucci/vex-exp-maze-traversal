@@ -50,69 +50,84 @@ def main():
 
     # using proportional control here
 
-    desired_distance = 5.0
-    distance_bound = 1.5 # for whether we hit or lost wall
+    desired_distance = 5.5
+    distance_bound = 2 # for whether we hit or lost wall
     base_speed = 10.0
-    correction_before_slow = 1.5
+    #correction_before_slow = 1.5
     
     # proportional gain for P-control
-    k_p = 2.0  # MINIMUM TWO
+    k_p = 2.375
 
     # opt saw nothing, so drive
     if not opt.is_near_object():
-        drivetrain.set_drive_velocity(base_speed, PERCENT)
-        drivetrain.drive(FORWARD)
-
+        
         # While we are following a wall
-        print("-- initiating wall follow loop --")
+        print("-- initiating new wall follow loop --")
         while True:
             # Control polling rate
             wait(0.1, SECONDS)
+            drivetrain.drive(FORWARD)
+            drivetrain.set_drive_velocity(base_speed, PERCENT)
+
             current_distance = dist.object_distance(INCHES)
             print(current_distance)
+            
 
-            # break if opt sees an object in front
+            # FOUND FRONT WALL
             if opt.is_near_object():
                 print("-- obj in front, breaking wall follow loop --")
                 left_drive_smart.set_velocity(base_speed, PERCENT)
                 right_drive_smart.set_velocity(base_speed, PERCENT)
                 drivetrain.stop()
-                break
+                drivetrain.turn_for(RIGHT, 85, DEGREES)
+                #drivetrain.drive(FORWARD)
+                #break
 
-            # LOST WALL, reset motors and exit
+            # LOST SIDE WALL
             elif current_distance > desired_distance + distance_bound:
                 print("-- lost wall, breaking wall follow loop --")
                 left_drive_smart.set_velocity(base_speed, PERCENT)
                 right_drive_smart.set_velocity(base_speed, PERCENT)
                 drivetrain.stop()
+                error = current_distance - desired_distance
+                turn(k_p * error)
                 break
+                #k_p = 5
 
+            # HIT SIDE WALL
             elif current_distance < desired_distance - distance_bound:
                 print("-- hit wall, breaking wall follow loop --")
                 left_drive_smart.set_velocity(base_speed, PERCENT)
                 right_drive_smart.set_velocity(base_speed, PERCENT)
                 drivetrain.stop()
                 break
-
+            else:
+                print("else")
             # calculate the error (aka deviation from the desired distance)
             error = current_distance - desired_distance
 
             # use P-control to adjust motor speeds
             correction = k_p * error
+            #if error > 1 or error < -1:
+            #    correction = error**2 * error/abs(error)
 
             # Set motor velocities based on the correction
-            left_velocity = base_speed - correction
+            #left_velocity = base_speed - correction
+            left_velocity = base_speed
             right_velocity = base_speed + correction
 
-            # Set motor velocities within a reasonable range
-            #left_velocity = max(base_speed - correction_before_slow, min(left_velocity, base_speed + correction_before_slow))
-            #right_velocity = max(base_speed - correction_before_slow, min(right_velocity, base_speed + correction_before_slow))
+            #if correction is getting out of control, zero-point turn
+            #if(correction > correction_before_slow):
+            #    left_velocity = -1.5*correction  # hard coded idk
+            #    right_velocity = 1.5*correction
+            #    print("-- OUT OF CONTROL, SLOWING --")
 
-            # if correction is getting out of control, zero-point turn
-            if(correction > correction_before_slow):
-                left_velocity = -2*correction  # hard coded idk
-                right_velocity = 2*correction
-                print("-- OUT OF CONTROL, SLOWING --")
+
+            # new correction
+            #if(dist.object_distance(INCHES) < 4.5):
+            #    drivetrain.drive_for(REVERSE, 1, INCHES)
+            #    drivetrain.turn_for(RIGHT, 15, DEGREES)
+
 
             # Set motor velocities
             left_drive_smart.set_velocity(left_velocity, PERCENT)
@@ -153,12 +168,37 @@ def check_initial_pos():
     serv.spin_to_position(90,DEGREES,wait=True) # left
 
     if(dist.object_distance(INCHES) >= 6.5):
-        brain.screen.print("BOT NOT ALIGNED")
+        brain.screen.print("BOT TOO FAR")
         brain.screen.next_row()
-        brain.screen.print("WITH LEFT WALL")
+        brain.screen.print("FROM LEFT WALL")
         serv.spin_to_position(0,DEGREES,wait=True) # straight again for re-calibrate
         wait(100000, SECONDS)
-    return
+    elif(dist.object_distance(INCHES) <= 4.5):
+        brain.screen.print("BOT TOO CLOSE")
+        brain.screen.next_row()
+        brain.screen.print("TO LEFT WALL")
+        serv.spin_to_position(0,DEGREES,wait=True) # straight again for re-calibrate
+        wait(100000, SECONDS)
+    else:
+        return
+
+
+
+def turn(correction):
+    #drivetrain.turn_to_rotation(correction + drivetrain.rotation(DEGREES) , DEGREES)
+    print("-- turn function called --")
+    serv.spin_to_position(0, DEGREES)
+    wait(.5, SECONDS)
+    clearance = min(dist.object_distance(INCHES) - 3, 8.5)
+    drivetrain.drive_for(FORWARD, clearance, INCHES)
+    drivetrain.turn_for(LEFT, 90, DEGREES)
+    serv.spin_to_position(90, DEGREES)
+    left_drive_smart.set_velocity(10, PERCENT)
+    right_drive_smart.set_velocity(10.5, PERCENT)
+    while(dist.object_distance(INCHES) > 6.5):
+        drivetrain.drive(FORWARD)
+    main()
+
 
 
 # Start code

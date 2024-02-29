@@ -43,8 +43,11 @@ def calibrate_drivetrain():
 
 # Library imports
 from vex import *
+import math
 
 # Begin project code
+
+turn_deg = 88
 
 def main():
 
@@ -79,7 +82,7 @@ def main():
                 left_drive_smart.set_velocity(base_speed, PERCENT)
                 right_drive_smart.set_velocity(base_speed, PERCENT)
                 drivetrain.stop()
-                drivetrain.turn_for(RIGHT, 85, DEGREES)
+                turn("RIGHT")
                 #drivetrain.drive(FORWARD)
                 #break
 
@@ -90,7 +93,8 @@ def main():
                 right_drive_smart.set_velocity(base_speed, PERCENT)
                 drivetrain.stop()
                 error = current_distance - desired_distance
-                turn(k_p * error)
+                turn("LEFT")
+                #turn(k_p * error)
                 break
                 #k_p = 5
 
@@ -139,6 +143,49 @@ def main():
 
 # ------------------------------------------
 
+def calc_turn_correction():
+    cardinal = round((drivetrain.heading(DEGREES))/90)*90
+    if(cardinal <= 0):
+        cardinal = 360 + cardinal
+    elif(cardinal >= 360):
+        cardinal = cardinal - 360
+    #cardinal = drivetrain.heading(DEGREES) % 90
+    print("Cardinal: ", cardinal)
+    return cardinal
+
+# ------------------------------------------
+
+def turn(direction):
+    print("-- left turn function called --")
+    cardinal = calc_turn_correction()
+    drivetrain.turn_to_heading(cardinal)
+    
+    # spin dist sensor forward and take measurement
+    serv.spin_to_position(0, DEGREES,wait=True)
+    clearance = min(dist.object_distance(INCHES) - 2.5, 7.5)
+    print("Clearance: ", clearance)
+    
+    drivetrain.drive_for(FORWARD, clearance, INCHES)
+    if(direction == "LEFT"):
+        drivetrain.turn_for(LEFT, turn_deg, DEGREES)
+    elif(direction == "RIGHT"):
+        drivetrain.turn_for(RIGHT, turn_deg, DEGREES)
+    else:
+        print("invalid turn direction provided: ", direction)
+    
+    # reset distance sensor
+    serv.spin_to_position(90, DEGREES)
+    
+    #left_drive_smart.set_velocity(10, PERCENT)
+    #right_drive_smart.set_velocity(10.5, PERCENT)
+    
+    # keep driving until we find wall on left again
+    while(dist.object_distance(INCHES) > 6.5):
+        drivetrain.drive(FORWARD)
+    main()
+
+# ------------------------------------------
+
 def calibrate_serv():
     straight = 115 # it is 115 in this file... no idea why
     for i in range(-10, 10, 1):
@@ -182,24 +229,7 @@ def check_initial_pos():
     else:
         return
 
-
-
-def turn(correction):
-    #drivetrain.turn_to_rotation(correction + drivetrain.rotation(DEGREES) , DEGREES)
-    print("-- turn function called --")
-    serv.spin_to_position(0, DEGREES)
-    wait(.5, SECONDS)
-    clearance = min(dist.object_distance(INCHES) - 3, 8.5)
-    drivetrain.drive_for(FORWARD, clearance, INCHES)
-    drivetrain.turn_for(LEFT, 90, DEGREES)
-    serv.spin_to_position(90, DEGREES)
-    left_drive_smart.set_velocity(10, PERCENT)
-    right_drive_smart.set_velocity(10.5, PERCENT)
-    while(dist.object_distance(INCHES) > 6.5):
-        drivetrain.drive(FORWARD)
-    main()
-
-
+# ------------------------------------------
 
 # Start code
 calibrate_serv()

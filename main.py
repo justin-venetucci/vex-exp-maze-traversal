@@ -14,6 +14,7 @@ right_drive_smart = Motor(Ports.PORT5, False)
 drivetrain = SmartDrive(left_drive_smart, right_drive_smart, brain_inertial, 219.44, 320, 40, MM, 1.6666666666666667)
 serv = Motor(Ports.PORT2, False)
 ptmr = Potentiometer(brain.three_wire_port.b)
+limit_switch_a = Limit(brain.three_wire_port.a)
 
 
 # Wait for sensor(s) to fully initialize
@@ -34,10 +35,10 @@ def calibrate_drivetrain():
 #endregion VEXcode Generated Robot Configuration
 # ------------------------------------------
 # 
-# 	Project:      VEXcode Project
-#	Author:       VEX
-#	Created:
-#	Description:  VEXcode EXP Python Project
+# \tProject:      VEXcode Project
+#\tAuthor:       VEX
+#\tCreated:
+#\tDescription:  VEXcode EXP Python Project
 # 
 # ------------------------------------------
 
@@ -53,10 +54,10 @@ def main():
 
     # using proportional control here
 
-    desired_distance = 4.5
-    distance_bound = 1 # for whether we hit or lost wall
-    base_speed = 10.0
-    max_speed = 20.0
+    desired_distance = 5.0
+    distance_bound = 1.0 # for whether we hit or lost wall
+    base_speed = 20.0
+    max_speed = 25.0
     #correction_before_slow = 1.5
     
     # proportional gain for P-control
@@ -74,7 +75,7 @@ def main():
             drivetrain.set_drive_velocity(base_speed, PERCENT)
 
             current_distance = dist.object_distance(INCHES)
-            print(current_distance)
+            # print(current_distance)
             
 
             # FOUND FRONT WALL
@@ -88,11 +89,15 @@ def main():
                 #break
 
             # LOST SIDE WALL
-            elif current_distance > desired_distance + distance_bound:
-                if current_distance <  desired_distance + distance_bound + 0.2:
-                    print(current_distance)
-                    print(desired_distance + distance_bound + 0.2)
-                    returnToWall()
+            elif dist.object_distance(INCHES) > desired_distance + distance_bound + 2:
+                print("CUR DIST" + str(dist.object_distance(INCHES)))
+                #if current_distance <  desired_distance + distance_bound + 0.1:
+                #    print(current_distance)
+                #    print(desired_distance + distance_bound + 0.1)
+                #    returnToWall()
+                #
+                if False:
+                    print()
                 else:
                     print("-- lost wall, breaking wall follow loop --")
                     left_drive_smart.set_velocity(base_speed, PERCENT)
@@ -100,11 +105,19 @@ def main():
                     drivetrain.stop()
                     error = current_distance - desired_distance
                     turn("LEFT")
-                    while(dist.object_distance(INCHES) > 6.5):
+                    while(dist.object_distance(INCHES) > 8):
                         if(opt.is_near_object()):
-                            turn("RIGHT")
+                            drivetrain.turn_for(RIGHT, 90, DEGREES)
                         else:
                             drivetrain.drive(FORWARD)
+                            if(limit_switch_a.pressing()):
+                                print("-- LIMIT SWITCH HIT WALL --")
+                                drivetrain.drive_for(REVERSE, 2,INCHES)
+                                drivetrain.turn_for(RIGHT, 2, DEGREES)
+                            
+                                
+                                
+                            
 
             # HIT SIDE WALL
             elif current_distance < desired_distance - distance_bound:
@@ -112,9 +125,10 @@ def main():
                 left_drive_smart.set_velocity(base_speed, PERCENT)
                 right_drive_smart.set_velocity(base_speed, PERCENT)
                 drivetrain.stop()
-                break
-            else:
-                print("else")
+                drivetrain.drive_for(REVERSE, 3, INCHES, wait=True)
+                
+            # else:
+                # print("else")
             
             # calculate the error (aka deviation from the desired distance)
             error = current_distance - desired_distance
@@ -130,8 +144,8 @@ def main():
             left_drive_smart.set_velocity(left_velocity, PERCENT)
             right_drive_smart.set_velocity(right_velocity, PERCENT)
 
-            print("Error:", error, "Correction:", correction)
-            print("L:", left_velocity, "R:", right_velocity)
+            # print("Error:", error, "Correction:", correction)
+            # print("L:", left_velocity, "R:", right_velocity)
 
 
 # ------------------------------------------
@@ -182,10 +196,14 @@ def turn(direction):
 
 def returnToWall():
     print("-- Attempting to return to wall --")
-    cardinal = calc_turn_correction()
-    drivetrain.turn_to_heading(cardinal)
-    turn("LEFT")
+    drivetrain.turn_for(LEFT, 90, DEGREES)
 
+# ------------------------------------------
+def reverseAndCorrect():
+    drivetrain.drive_for(REVERSE, 2,INCHES)
+    turn("RIGHT")
+    drivetrain.drive_for(FORWARD, 2,INCHES)
+    turn("LEFT")
 
 
 # ------------------------------------------
@@ -236,6 +254,7 @@ def check_initial_pos():
 # ------------------------------------------
 
 # Start code
+
 calibrate_serv()
 check_initial_pos()
 
